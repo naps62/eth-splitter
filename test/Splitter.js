@@ -14,133 +14,88 @@ contract("Splitter", accounts => {
   const otherReceiver2 = accounts[6];
   let contract = null;
 
-  beforeEach(() => {
-    return Splitter.new(alice, bob, carol)
-      .then(_instance => contract = _instance);
+  beforeEach(async () => {
+    contract = await Splitter.new(alice, bob, carol)
   })
 
-  it("stores alice's, bob's and alice's addresses", () => {
-    return P.join(
-      contract.alice(),
-      contract.bob(),
-      contract.carol(),
-      (aliceAddr, bobAddr, carolAddr) =>
-        P.all([
-          assert.equal(aliceAddr, alice, "Alice's address is not set"),
-          assert.equal(bobAddr, bob, "Bob's address is not set"),
-          assert.equal(carolAddr, carol, "Carol's address is not set")
-        ])
-    );
+  it("stores alice's, bob's and alice's addresses", async () => {
+    const aliceAddr = await contract.alice();
+    const bobAddr = await contract.bob();
+    const carolAddr = await contract.carol();
+
+    assert.equal(aliceAddr, alice, "Alice's address is not set"),
+    assert.equal(bobAddr, bob, "Bob's address is not set"),
+    assert.equal(carolAddr, carol, "Carol's address is not set")
   });
 
-  it("sending money from a random source will simply store it", () => {
+  it("sending money from a random source will simply store it", async () => {
     const transactionValue = web3.toWei(0.1, "ether");
-    let initialContractBalance = null;
-    let initialBobBalance = null;
-    let initialCarolBalance = null;
+    const initialContractBalance = await getBalance(contract.address);
+    const initialBobBalance = await getBalance(bob);
+    const initialCarolBalance = await getBalance(carol);
 
-    return P.join(
-      getBalance(contract.address),
-      getBalance(bob),
-      getBalance(carol),
-      (contractBalance, bobBalance, carolBalance) => {
-        initialContractBalance = contractBalance;
-        initialBobBalance = bobBalance;
-        initialCarolBalance = carolBalance;
-      }
-    ).then(() =>
-      sendTransaction({
-        from: otherAccount,
-        to: contract.address,
-        value: transactionValue
-      })
-    ).then(txhash =>
-      P.join(
-        getBalance(contract.address),
-        getBalance(bob),
-        getBalance(carol),
-        (contractBalance, bobBalance, carolBalance) =>
-          P.join(
-            assert(contractBalance.equals(transactionValue)),
-            assert(bobBalance.equals(initialBobBalance)),
-            assert(carolBalance.equals(initialCarolBalance))
-          )
-      )
-    );
+    const txhash = await sendTransaction({
+      from: otherAccount,
+      to: contract.address,
+      value: transactionValue
+    });
+
+    const contractBalance = await getBalance(contract.address);
+    const bobBalance = await getBalance(bob);
+    const carolBalance = await getBalance(carol);
+
+    assert(contractBalance.equals(transactionValue));
+    assert(bobBalance.equals(initialBobBalance));
+    assert(carolBalance.equals(initialCarolBalance));
   })
 
-  it("sending money from alice's account will split it between bob and carol", () => {
+  it("sending money from alice's account will split it between bob and carol", async () => {
     const transactionValue = web3.toWei(0.1, "ether");
     const halfTransactionValue = web3.toWei(0.05, "ether");
-    let initialContractBalance = null;
-    let initialBobBalance = null;
-    let initialCarolBalance = null;
+    const initialContractBalance = await getBalance(contract.address);
+    const initialBobBalance = await getBalance(bob);
+    const initialCarolBalance = await getBalance(carol);
 
-    return P.join(
-      getBalance(contract.address),
-      getBalance(bob),
-      getBalance(carol),
-      (contractBalance, bobBalance, carolBalance) => {
-        initialContractBalance = contractBalance;
-        initialBobBalance = bobBalance;
-        initialCarolBalance = carolBalance;
-      }
-    ).then(() =>
-      sendTransaction({
-        from: alice,
-        to: contract.address,
-        value: transactionValue
-      })
-    ).then(txhash =>
-      P.join(
-        getBalance(contract.address),
-        getBalance(bob),
-        getBalance(carol),
-        (contractBalance, bobBalance, carolBalance) => {
-          const expectedBobBalance = initialBobBalance.plus(halfTransactionValue);
-          const expectedCarolBalance = initialCarolBalance.plus(halfTransactionValue);
+    const txhash = await sendTransaction({
+      from: alice,
+      to: contract.address,
+      value: transactionValue
+    });
 
-          P.join(
-            assert(contractBalance.equals(0)),
-            assert(bobBalance.equals(expectedBobBalance)),
-            assert(carolBalance.equals(expectedCarolBalance))
-          )
-        }
-      )
-    );
+    const contractBalance = await getBalance(contract.address);
+    const bobBalance = await getBalance(bob);
+    const carolBalance = await getBalance(carol);
+
+    const expectedBobBalance = initialBobBalance.plus(halfTransactionValue);
+    const expectedCarolBalance = initialCarolBalance.plus(halfTransactionValue);
+
+    assert(contractBalance.equals(0)),
+    assert(bobBalance.equals(expectedBobBalance)),
+    assert(carolBalance.equals(expectedCarolBalance))
   });
 
-  it("random accounts can request an amount to be split between two given addresses", () => {
+  it("random accounts can request an amount to be split between two given addresses", async () => {
     const transactionValue = web3.toWei(0.1, "ether");
     const halfTransactionValue = web3.toWei(0.05, "ether");
-    let initialReceiver1Balance = null;
-    let initialReceiver2Balance = null;
+    let initialReceiver1Balance = await getBalance(otherReceiver1);
+    let initialReceiver2Balance = await getBalance(otherReceiver2);
 
-    return P.join(
-      getBalance(otherReceiver1),
-      getBalance(otherReceiver2),
-      (receiver1Balance, receiver2Balance) => {
-        initialReceiver1Balance = receiver1Balance;
-        initialReceiver2Balance = receiver2Balance;
-      }
-    ).then(() =>
-      contract.split.sendTransaction(otherReceiver1, otherReceiver2, {
+    const txhash = await contract.split.sendTransaction(
+      otherReceiver1,
+      otherReceiver2,
+      {
         from: otherAccount,
         value: transactionValue
-      })
-    ).then(txhash =>
-      P.join(
-      getBalance(otherReceiver1),
-      getBalance(otherReceiver2),
-      (receiver1Balance, receiver2Balance) => {
-        const expectedReceiver1Balance = initialReceiver1Balance.plus(halfTransactionValue);
-        const expectedReceiver2Balance = initialReceiver2Balance.plus(halfTransactionValue);
-
-        P.join(
-          assert(receiver1Balance.equals(expectedReceiver1Balance)),
-          assert(receiver2Balance.equals(expectedReceiver2Balance))
-        )
-      })
+      }
     );
+
+    const receiver1Balance = await getBalance(otherReceiver1);
+    const receiver2Balance = await getBalance(otherReceiver2);
+
+    const expectedReceiver1Balance = initialReceiver1Balance.plus(halfTransactionValue);
+    const expectedReceiver2Balance = initialReceiver2Balance.plus(halfTransactionValue);
+
+    assert(receiver1Balance.equals(expectedReceiver1Balance)),
+    assert(receiver2Balance.equals(expectedReceiver2Balance))
   });
 });

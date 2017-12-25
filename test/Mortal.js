@@ -1,10 +1,7 @@
 const Mortal = artifacts.require("./Mortal.sol");
-const P = require("bluebird");
+const assertRevert = require('./helpers/assertRevert');
 
-const getBalance = P.promisify(web3.eth.getBalance);
-const sendTransaction = P.promisify(web3.eth.sendTransaction);
-
-contract("Splitter", accounts => {
+contract("Mortal", accounts => {
   const owner = accounts[0];
   const alice = accounts[1];
   let contract = null;
@@ -14,29 +11,19 @@ contract("Splitter", accounts => {
       .then(_instance => contract = _instance);
   })
 
-  it("can be closed by its owner", () => {
-    return contract.kill.sendTransaction({ from: owner })
-      .then(() =>
-        contract.owner()
-      )
-      .then(currentOwner =>
-        assert.equal(currentOwner, 0)
-      );
+  it("can be closed by its owner", async () => {
+    await contract.kill.sendTransaction({ from: owner });
+    const currentOwner = await contract.owner();
+
+    assert.equal(currentOwner, 0);
   });
 
-  it("cannot be closed by anyone else", () => {
-    return contract.kill.sendTransaction({ from: alice })
-      .then(result =>
-        assert(false)
-      )
-      .catch(ex =>
-        assert(true)
-      )
-      .then(() =>
-        contract.owner()
-      )
-      .then(currentOwner =>
-        assert.equal(currentOwner, owner)
-      );
+  it("cannot be closed by anyone else", async () => {
+    try {
+      await contract.kill.sendTransaction({ from: alice })
+      assert.fail();
+    } catch(err) {
+      assertRevert(err)
+    }
   });
 });
