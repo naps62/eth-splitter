@@ -7,22 +7,22 @@ contract Splitter is Mortal {
   address public bob;
   address public carol;
 
-  function Splitter(address aliceAddress, address bobAddress, address carolAddress)
+  function Splitter(address bobAddress, address carolAddress)
   public
   {
-    alice = aliceAddress;
+    alice = msg.sender;
     bob = bobAddress;
     carol = carolAddress;
   }
 
-  function split(address firstReceiver, address secondReceiver)
+  function split()
   public
   payable
   returns (bool success)
   {
-    uint half = msg.value / 2;
-    firstReceiver.transfer(half);
-    secondReceiver.transfer(half);
+    uint half = this.balance / 2;
+    bob.transfer(half);
+    carol.transfer(half);
 
     return true;
   }
@@ -31,8 +31,5 @@ contract Splitter is Mortal {
   payable
   public
   {
-    if (msg.sender == alice) {
-      split(bob, carol);
-    }
   }
 }
