@@ -29,50 +29,77 @@ contract("Splitter", accounts => {
     assert.equal(carolAddr, carol, "Carol's address is not set")
   });
 
-  it("sending money from a random source will simply store it", async () => {
-    const transactionValue = web3.toWei(0.1, "ether");
-    const initialContractBalance = await getBalance(contract.address);
-    const initialBobBalance = await getBalance(bob);
-    const initialCarolBalance = await getBalance(carol);
-
-    const txhash = await sendTransaction({
-      from: otherAccount,
-      to: contract.address,
-      value: transactionValue
-    });
-
-    const contractBalance = await getBalance(contract.address);
-    const bobBalance = await getBalance(bob);
-    const carolBalance = await getBalance(carol);
-
-    assert(contractBalance.equals(transactionValue));
-    assert(bobBalance.equals(initialBobBalance));
-    assert(carolBalance.equals(initialCarolBalance));
-  })
-
   it("can split money sent from alice between bob and carol", async () => {
-    const transactionValue = web3.toWei(0.1, "ether");
-    const halfTransactionValue = web3.toWei(0.05, "ether");
-    const initialContractBalance = await getBalance(contract.address);
+    const full = web3.toWei(0.1, "ether");
+    const half = web3.toWei(0.05, "ether");
     const initialBobBalance = await getBalance(bob);
     const initialCarolBalance = await getBalance(carol);
 
-    const txhash = await sendTransaction({
+    const tx = await contract.split.sendTransaction({
       from: alice,
       to: contract.address,
-      value: transactionValue
+      value: full,
     });
 
-    const tx = await contract.split.sendTransaction();
+    const bobBalance = await contract.balanceOf(bob);
+    const carolBalance = await contract.balanceOf(carol);
 
-    const bobBalance = await getBalance(bob);
-    const carolBalance = await getBalance(carol);
+    assert(bobBalance.equals(half));
+    assert(carolBalance.equals(half));
+  });
 
-    const expectedBobBalance = initialBobBalance.plus(halfTransactionValue);
-    const expectedCarolBalance = initialCarolBalance.plus(halfTransactionValue);
+  it("cannot split odd amounts", async () => {
+    try {
+      const tx = await contract.split.sendTransaction({
+        from: alice,
+        to: contract.address,
+        value: 3,
+      });
+      assert.fail();
+    } catch(err) {
+      assertRevert(err);
+    }
+  })
 
-    assert(bobBalance.equals(expectedBobBalance)),
-    assert(carolBalance.equals(expectedCarolBalance))
+  it("can split money sent between other accounts", async () => {
+    const full = web3.toWei(0.1, "ether");
+    const half = web3.toWei(0.05, "ether");
+
+    const tx = await contract.splitBetween.sendTransaction(
+      otherReceiver1,
+      otherReceiver2,
+      {
+        from: otherAccount,
+        to: contract.address,
+        value: full,
+      }
+    );
+
+    const receiver1Balance = await contract.balanceOf(otherReceiver1);
+    const receiver2Balance = await contract.balanceOf(otherReceiver2);
+
+    assert(receiver1Balance.equals(half));
+    assert(receiver2Balance.equals(half));
+  });
+
+
+  it("allows bob and alice to redeem their balance", async () => {
+    const full = web3.toWei(0.1, "ether");
+    const half = web3.toWei(0.05, "ether");
+    const initialBobBalance = await getBalance(bob);
+    const initialCarolBalance = await getBalance(carol);
+
+    const tx = await contract.split.sendTransaction({
+      from: alice,
+      to: contract.address,
+      value: full,
+    });
+
+    await contract.redeem({ from: bob });
+    await contract.redeem({ from: carol });
+
+    assert.equal(await contract.balanceOf(bob), 0)
+    assert.equal(await contract.balanceOf(carol), 0)
   });
 
   it("fails if amount to split is zero", async () => {
