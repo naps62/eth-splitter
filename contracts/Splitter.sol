@@ -20,6 +20,10 @@ contract Splitter is Mortal {
   payable
   returns (bool success)
   {
+    require(this.balance > 0);
+    require(bob != address(0));
+    require(carol != address(0));
+
     uint half = this.balance / 2;
     bob.transfer(half);
     carol.transfer(half);

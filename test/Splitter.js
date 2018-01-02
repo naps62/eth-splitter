@@ -1,4 +1,5 @@
 const Splitter = artifacts.require("./Splitter.sol");
+const assertRevert = require('./helpers/assertRevert');
 const P = require("bluebird");
 
 const getBalance = P.promisify(web3.eth.getBalance);
@@ -49,7 +50,7 @@ contract("Splitter", accounts => {
     assert(carolBalance.equals(initialCarolBalance));
   })
 
-  it.only("can split money sent from alice between bob and carol", async () => {
+  it("can split money sent from alice between bob and carol", async () => {
     const transactionValue = web3.toWei(0.1, "ether");
     const halfTransactionValue = web3.toWei(0.05, "ether");
     const initialContractBalance = await getBalance(contract.address);
@@ -70,8 +71,16 @@ contract("Splitter", accounts => {
     const expectedBobBalance = initialBobBalance.plus(halfTransactionValue);
     const expectedCarolBalance = initialCarolBalance.plus(halfTransactionValue);
 
-    assert(contractBalance.equals(0)),
     assert(bobBalance.equals(expectedBobBalance)),
     assert(carolBalance.equals(expectedCarolBalance))
   });
+
+  it("fails if amount to split is zero", async () => {
+    try {
+      const tx = await contract.split.sendTransaction();
+      assert.fail()
+    } catch(err) {
+      assertRevert(err);
+    }
+  })
 });
