@@ -3,11 +3,7 @@ pragma solidity ^0.4.17;
 import "./Mortal.sol";
 
 contract Splitter is Mortal {
-  address public alice;
-  address public bob;
-  address public carol;
-
-  mapping (address => uint) balances;
+  mapping(address => uint) public balances;
 
   event Split(
     address indexed recipient1,
@@ -20,44 +16,21 @@ contract Splitter is Mortal {
     uint amount
   );
 
-  function Splitter(address bobAddress, address carolAddress)
-  public
-  {
-    alice = msg.sender;
-    bob = bobAddress;
-    carol = carolAddress;
-  }
-
-  function balanceOf(address addr)
-  view
-  public
-  returns (uint balance)
-  {
-    return balances[addr];
-  }
-
-  function split()
-  public
-  payable
-  returns (bool success)
-  {
-    return splitBetween(bob, carol);
-  }
-
-  function splitBetween(address recipient1, address recipient2)
+  function split(address recipient1, address recipient2)
   public
   payable
   returns (bool success)
   {
     require(msg.value > 0);
-    require(remainder(msg.value, 2) == 0);
     require(recipient1 != address(0));
     require(recipient2 != address(0));
 
-    uint half = msg.value / 2;
-    balances[recipient1] += half;
-    balances[recipient2] += half;
-    Split(recipient1, recipient2, half);
+    var (quotient, remainder) = divide(msg.value, 2);
+    balances[recipient1] += quotient;
+    balances[recipient2] += quotient;
+    balances[msg.sender] = remainder;
+
+    Split(recipient1, recipient2, quotient);
 
     return true;
   }
@@ -77,17 +50,12 @@ contract Splitter is Mortal {
     return true;
   }
 
-  function remainder(uint numerator, uint denominator)
+  function divide(uint numerator, uint denominator)
   private
   pure
-  returns (uint)
+  returns (uint quotient, uint remainder)
   {
-    return numerator - denominator * (numerator / denominator);
-  }
-
-  function ()
-  payable
-  public
-  {
+    quotient = numerator / denominator;
+    remainder = numerator - denominator * quotient;
   }
 }
